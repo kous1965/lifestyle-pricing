@@ -63,6 +63,34 @@ def test_floor_calc_error_warns():
     assert "下限価格を計算できません" in c.reason
 
 
+def test_above_absolute_ceiling_warns():
+    # 商品ごとの最高売価(1800円)を、現在価格(2000円)がすでに超えている。
+    c = _eval(_product(current_price=2000, base_price=2400),
+               ctx=_ctx(absolute_ceiling_by_code={"X": 1800}))
+    assert c.action == "warn"
+    assert "上限" in c.reason
+
+
+def test_floor_above_ceiling_warns():
+    # 最低売価(2000円)が最高売価(1800円)を上回る、設定ミスのケース。
+    c = _eval(_product(current_price=1900, base_price=2400),
+               ctx=_ctx(absolute_floor_by_code={"X": 2000},
+                        absolute_ceiling_by_code={"X": 1800}))
+    assert c.action == "warn"
+    assert "下限" in c.reason and "上限" in c.reason
+
+
+def test_markup_clamped_to_absolute_ceiling():
+    # 定価は2200円だが、商品ごとの最高売価2000円の方が厳しい上限として使われる。
+    p = _product(current_price=1980, base_price=2200, cost=800)
+    orders = [Order("X", AS_OF - timedelta(days=d)) for d in (0, 0, 0, 2, 2, 2)]
+    ctx = _ctx(orders_by_code={"X": orders}, absolute_ceiling_by_code={"X": 2000})
+    c = evaluate_product(p, GroupConfig(), ctx)
+    assert c.action == "markup"
+    assert c.proposed_price == 2000
+    assert c.details["ceiling"] == 2000
+
+
 # ---- 値下げ --------------------------------------------------------------- #
 def test_markdown_when_no_sales():
     p = _product(current_price=1980, base_price=2200, cost=900, shipping_cost=200)

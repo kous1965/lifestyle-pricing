@@ -54,6 +54,8 @@ streamlit run pricing/demo/app.py
 サイドバーで仕様書7章の判定パラメータ(値下げ率・クールダウン日数など)や合成データの
 乱数シードをその場で変更でき、判定結果・テキスト/CSVレポートが即座に再計算される。
 
+画面構成・操作方法は [pricing/demo/MANUAL.md](pricing/demo/MANUAL.md) を参照。
+
 ## 環境変数
 
 `cp .env.example .env` して実値を入れる（`.env` は gitignore 済み）。

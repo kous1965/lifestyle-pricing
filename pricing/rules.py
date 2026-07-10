@@ -45,6 +45,8 @@ class EvalContext:
     event_days: set[date] = field(default_factory=set)
     # 商品ごとの絶対下限単価(仕様書3.2)。無ければ原価ベース下限だけを使う。
     absolute_floor_by_code: dict[str, int] = field(default_factory=dict)
+    # 商品ごとの絶対上限単価。無ければ基準価格(定価)だけを上限として使う。
+    absolute_ceiling_by_code: dict[str, int] = field(default_factory=dict)
 
 
 # --------------------------------------------------------------------------- #
@@ -168,9 +170,8 @@ def _build_markdown(product: Product, cfg: GroupConfig, floor: int, details: dic
     )
 
 
-def _build_markup(product: Product, cfg: GroupConfig, details: dict) -> Candidate:
-    """値上げの提案価格を作って上限(基準価格)・端数・累計上限を適用する。"""
-    ceiling = ceiling_price(product)
+def _build_markup(product: Product, cfg: GroupConfig, ceiling: int, details: dict) -> Candidate:
+    """値上げの提案価格を作って上限(基準価格 or 商品ごとの絶対上限)・端数・累計上限を適用する。"""
     raw = round(product.current_price * (1.0 + cfg.markup_rate))
     proposed = round_price(int(raw), cfg.rounding_mode, direction="up")
     final, hit_ceiling = clamp_markup(proposed, ceiling)
@@ -181,14 +182,14 @@ def _build_markup(product: Product, cfg: GroupConfig, details: dict) -> Candidat
     if final <= product.current_price:
         return Candidate(
             product.code, "skip", product.current_price, None,
-            f"上限(基準価格{ceiling:,}円)付近で値上げ余地なし", details,
+            f"上限({ceiling:,}円)付近で値上げ余地なし", details,
         )
     if exceeds_cumulative_cap(final, product.base_price, cfg):
         return Candidate(
             product.code, "needs_approval", product.current_price, final,
             f"値上げ後が基準価格の±{int(cfg.cumulative_cap_rate * 100)}%を超過。承認待ち", details,
         )
-    tail = "(上限=基準価格に到達)" if hit_ceiling else ""
+    tail = "(上限に到達)" if hit_ceiling else ""
     mult = details.get("baseline_multiple")
     mult_txt = f"{mult:.1f}倍" if isinstance(mult, (int, float)) else "急増"
     return Candidate(
@@ -207,12 +208,22 @@ def evaluate_product(product: Product, cfg: GroupConfig, ctx: EvalContext) -> Ca
     if reasons:
         return _skip(product, "対象外: " + " / ".join(reasons), {"exclusions": reasons})
 
-    # 2) 下限計算(設定不正はここで warn に落とす)
+    # 2) 下限・上限計算(設定不正はここで warn に落とす)
     absolute_floor = ctx.absolute_floor_by_code.get(product.code)
     try:
         floor = floor_price(product, cfg, absolute_floor)
     except ValueError as e:
         return _warn(product, f"下限価格を計算できません: {e}")
+
+    absolute_ceiling = ctx.absolute_ceiling_by_code.get(product.code)
+    ceiling = ceiling_price(product, absolute_ceiling)
+    if floor > ceiling:
+        return _warn(
+            product,
+            f"下限({floor:,}円)が上限({ceiling:,}円)を超えています。商品ごとの"
+            "最低売価・最高売価の設定を確認してください",
+            {"floor": floor, "ceiling": ceiling},
+        )
 
     # 2') 景表法リスク(二重価格表示中)は自動変更せず必ず人手で確認
     if product.has_reference_price_display:
@@ -228,6 +239,15 @@ def evaluate_product(product: Product, cfg: GroupConfig, ctx: EvalContext) -> Ca
             product,
             f"現在価格 {product.current_price:,}円 < 下限 {floor:,}円。赤字/送料負けの疑い",
             {"floor": floor},
+        )
+
+    # 2''') 現在価格が上限超え = 商品ごとの最高売価の設定ミスの疑い
+    if product.current_price > ceiling:
+        return _warn(
+            product,
+            f"現在価格 {product.current_price:,}円 > 上限 {ceiling:,}円。"
+            "最高売価の設定を確認してください",
+            {"ceiling": ceiling},
         )
 
     # 3) 新商品保護期間(仕様書 M)
@@ -273,7 +293,7 @@ def evaluate_product(product: Product, cfg: GroupConfig, ctx: EvalContext) -> Ca
                 f"クールダウン中(前回{last.direction}変更から{since}日 < {cd}日)。値上げ見送り",
                 markup_details,
             )
-        return _build_markup(product, cfg, markup_details)
+        return _build_markup(product, cfg, ceiling, markup_details)
 
     # 5) 値下げシグナル(売れない / 仕様書3章)
     sellable, orders_in_window, window_start = _markdown_stats(

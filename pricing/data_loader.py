@@ -22,6 +22,7 @@ def build_context(
     changes: list[PriceChange],
     event_days: set[date] | None = None,
     absolute_floors: dict[str, int] | None = None,
+    absolute_ceilings: dict[str, int] | None = None,
 ) -> EvalContext:
     """フラットなリスト群を、コード別に引ける EvalContext に整形する。"""
     orders_by_code: dict[str, list[Order]] = {}
@@ -43,6 +44,7 @@ def build_context(
         changes_by_code=changes_by_code,
         event_days=event_days or set(),
         absolute_floor_by_code=absolute_floors or {},
+        absolute_ceiling_by_code=absolute_ceilings or {},
     )
 
 

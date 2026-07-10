@@ -53,6 +53,13 @@ def test_ceiling_price_is_base_price():
     assert ceiling_price(_product(base_price=2500)) == 2500
 
 
+def test_ceiling_price_takes_lower_of_absolute():
+    # 絶対上限の方が定価より低ければそちらが採用される(より厳しい方)
+    assert ceiling_price(_product(base_price=2500), absolute_ceiling=2000) == 2000
+    # 絶対上限の方が定価より高ければ定価のまま(定価より高く売ることはない)
+    assert ceiling_price(_product(base_price=2500), absolute_ceiling=3000) == 2500
+
+
 # ---- round_price ---------------------------------------------------------- #
 @pytest.mark.parametrize(
     "price,direction,expected",

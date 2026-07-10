@@ -36,8 +36,15 @@ def floor_price(product: Product, cfg: GroupConfig, absolute_floor: int | None =
     return cost_based_floor
 
 
-def ceiling_price(product: Product) -> int:
-    """上限価格 = 基準価格(仕様書4.1)。これを超える値上げはしない。"""
+def ceiling_price(product: Product, absolute_ceiling: int | None = None) -> int:
+    """上限価格 = min(基準価格, 商品ごとの絶対上限単価)(仕様書4.1)。
+
+    絶対上限単価は、下限側の absolute_floor と対になる仕組み。「定価まで
+    上げてよいはずだが、この商品だけは○○円より上には絶対にしない」という
+    商品単位の指定があれば、そちらが基準価格より優先(=より厳しい方)される。
+    """
+    if absolute_ceiling is not None:
+        return min(product.base_price, absolute_ceiling)
     return product.base_price
 
 

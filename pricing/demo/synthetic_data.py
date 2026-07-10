@@ -142,8 +142,14 @@ def build_synthetic_dataset(
     scraped: list[ScrapedProduct],
     as_of: date,
     seed: int = 0,
+    absolute_floors: dict[str, int] | None = None,
+    absolute_ceilings: dict[str, int] | None = None,
 ) -> tuple[list[Product], EvalContext, dict[str, str]]:
     """実商品リストにシナリオを割り当て、判定エンジンにそのまま渡せる形にする。
+
+    absolute_floors / absolute_ceilings は、画面で個別設定した商品ごとの
+    最低売価・最高売価(pricing/demo/product_bounds.py 参照)。指定した商品は
+    シナリオ由来の原価/定価に関わらず、この値が下限・上限として優先される。
 
     戻り値: (Product一覧, EvalContext, {商品コード: シナリオ名})
     """
@@ -169,5 +175,8 @@ def build_synthetic_dataset(
         all_changes += changes
         code_to_scenario[product.code] = scenario
 
-    ctx = build_context(as_of, all_orders, all_stockouts, all_changes, event_days)
+    ctx = build_context(
+        as_of, all_orders, all_stockouts, all_changes, event_days,
+        absolute_floors=absolute_floors, absolute_ceilings=absolute_ceilings,
+    )
     return products, ctx, code_to_scenario
