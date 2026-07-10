@@ -1,0 +1,3 @@
+# Streamlit Community Cloud はリポジトリ直下の requirements.txt を見るため、
+# 実体は pricing/requirements.txt を参照するだけのポインタ。
+-r pricing/requirements.txt

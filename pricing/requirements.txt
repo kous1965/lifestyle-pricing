@@ -3,3 +3,6 @@
 # Yahoo注文API 直叩きのため requests を、テストのため pytest を入れる。
 requests>=2.31.0
 pytest>=8.0.0
+
+# デモ用コントロールパネル(pricing/demo)専用。本番のレポートのみモードには不要。
+streamlit>=1.35.0

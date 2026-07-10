@@ -18,6 +18,7 @@ pricing/
   report.py       レポート出力(テキスト / CSV)
   data_loader.py  入力整形 + 動作確認用ダミーデータ
   tests/          pytest 一式
+  demo/           クライアント提示用のデモ操作パネル(Streamlit)。本番機能ではない
 ```
 
 ## 使い方
@@ -32,6 +33,26 @@ python -m pricing.data_loader
 # テスト
 python -m pytest pricing/tests -q
 ```
+
+## コントロールパネル(デモ版)
+
+クライアントに触ってもらうための Streamlit 製デモ。仕様書5章(Yahoo注文API連携)が
+未着手のため、実際の注文データは使えない。代わりにクライアント店舗の公開商品ページ
+(`https://store.shopping.yahoo.co.jp/lifestyle-007/`)から商品名・現売価だけを
+スナップショット取得し、判定ロジックを動かすための合成の売れ行きデータ(注文・在庫切れ・
+過去の価格変更)を重ねて見せている。「シナリオ」列にどの分岐を演じさせているかが出るので、
+実売れ行きと混同しないようにしている。
+
+```bash
+# 1) 実商品名・実売価のスナップショットを取得(初回 or 更新したい時のみ。継続実行はしない)
+python -m pricing.demo.scrape_client_products
+
+# 2) デモパネルを起動
+streamlit run pricing/demo/app.py
+```
+
+サイドバーで仕様書7章の判定パラメータ(値下げ率・クールダウン日数など)や合成データの
+乱数シードをその場で変更でき、判定結果・テキスト/CSVレポートが即座に再計算される。
 
 ## 環境変数
 
